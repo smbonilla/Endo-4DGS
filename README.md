@@ -101,3 +101,76 @@ sh train_imed.sh
 python render.py --model_path <OUTPUT_PATH> --pc --skip_video --skip_train --configs arguments/imed.py
 python metrics.py --model_path <OUTPUT_PATH>
 ```
+
+## Docker-Compatible Branch
+
+This branch packages the iMED NVS baseline and a participant-facing
+Docker-compatible submission scaffold.
+
+- The repository root builds the Endo-4DGS baseline image.
+- `imednvs_submission/` is a CUDA/3DGS-ready Docker submission scaffold that
+  participants can copy and replace with their own per-sequence optimization
+  and rendering method.
+- Challenge data are not included in either Docker image. Mount iMED NVS data
+  at runtime as `/input:ro` and write predictions or model outputs to `/output`.
+
+The published baseline image is:
+
+```bash
+docker pull docker.synapse.org/syn74277461/imed-nvs-baseline:v1
+```
+
+### Build Baseline Image
+
+```bash
+docker build -t imed-nvs-baseline:dev .
+```
+
+### Run One Sequence
+
+```bash
+docker run --rm --gpus all --ipc=host \
+  -v /path/to/iMED_NVS/session_004_scene_2_tool_1:/input:ro \
+  -v /path/to/outputs:/output \
+  imed-nvs-baseline:dev \
+  run-sequence \
+  --sequence /input \
+  --output /output/session_004_scene_2_tool_1
+```
+
+### Run All Detected Sequences
+
+```bash
+docker run --rm --gpus all --ipc=host \
+  -v /path/to/iMED_NVS:/input:ro \
+  -v /path/to/outputs:/output \
+  imed-nvs-baseline:dev \
+  run-dataset \
+  --data-root /input \
+  --output-root /output
+```
+
+The root Docker entrypoint is `imed_nvs_baseline.py`. It trains on
+`endoscope2`, renders held-out `endoscope1`, and uses a writable
+`_input_sequence` view inside the output directory so `/input` can remain
+read-only.
+
+### Submission Scaffold
+
+To build and test the participant submission scaffold:
+
+```bash
+cd imednvs_submission
+docker build -t my-nvs-submission:dev .
+./scripts/local_test.sh my-nvs-submission:dev /path/to/iMED_NVS ./my_test_output
+```
+
+The template follows the NVS submission contract directly: the container reads
+mounted sequence data from `/input` and writes rendered target-view RGB PNGs to
+`/output/<sequence_name>/renders/`.
+
+Unlike the iMED pose-estimation task, many NVS methods, especially 3DGS-style
+methods, perform per-sequence optimization on the hidden test sequence before
+rendering. The submitted Docker image should therefore include all code,
+compiled CUDA extensions, pretrained weights, and other assets needed for
+training/optimization and rendering at runtime.

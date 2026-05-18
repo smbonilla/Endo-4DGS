@@ -16,7 +16,6 @@ from math import exp
 import torch.nn as nn
 import cv2
 import numpy as np
-from torchmetrics.regression import PearsonCorrCoef
 from utils.general_utils import build_rotation
 # from pytorch3d.transforms import quaternion_to_matrix
 KEY_OUTPUT = 'metric_depth'
@@ -380,7 +379,6 @@ class GradL1Loss(nn.Module):
     def __init__(self):
         super(GradL1Loss, self).__init__()
         self.name = 'GradL1'
-        self.pc_loss = PearsonCorrCoef().cuda()
 
     def forward(self, input, target, mask=None, interpolate=True, return_interpolated=False):
         mask = mask[None]
@@ -422,10 +420,19 @@ class GradL1Loss(nn.Module):
         # print(torch.sum(torch.isnan(grad_pred[0])))
         # print(torch.sum(torch.isnan(grad_pred[1])))
         # print(self.pc_loss(grad_pred[0][mask_mag][:, None], grad_gt[0][mask_mag][:, None]))
-        if min(grad_pred[0][mask_mag][:, None].shape) == 0:
-            loss = 0
+        pred_vals = grad_pred[0][mask_mag].float()
+        gt_vals = grad_gt[0][mask_mag].float()
+        if pred_vals.numel() < 2:
+            loss = pred_vals.new_tensor(0.0)
         else:
-            loss = (1 - self.pc_loss(grad_pred[0][mask_mag][:, None], grad_gt[0][mask_mag][:, None]))
+            pred_centered = pred_vals - pred_vals.mean()
+            gt_centered = gt_vals - gt_vals.mean()
+            denom = pred_centered.std(unbiased=False) * gt_centered.std(unbiased=False)
+            if denom <= 1e-12:
+                loss = pred_vals.new_tensor(0.0)
+            else:
+                corr = (pred_centered * gt_centered).mean() / (denom + 1e-12)
+                loss = 1 - torch.clamp(corr, -1.0, 1.0)
         # if min(grad_pred[1][mask_ang][:, None].shape) == 0:
         #     loss = loss + 0
         # else:

@@ -140,6 +140,16 @@ def _build_global_imed_overlap_mask(source_path, out_h, out_w):
         mask = mask_t.squeeze(0).squeeze(0).numpy()
     return mask
 
+def _has_imed_reprojection_inputs(source_path):
+    if source_path is None:
+        return False
+    source = Path(source_path)
+    return (
+        (source / "K.txt").is_file()
+        and (source / "pose.txt").is_file()
+        and (source / "endoscope2" / "depthL").is_dir()
+    )
+
 def _create_window(window_size, channel, device, dtype):
     coords = torch.arange(window_size, device=device, dtype=dtype) - window_size // 2
     gauss = torch.exp(-(coords**2) / (2 * (1.5**2)))
@@ -243,7 +253,7 @@ def evaluate(model_paths):
                 if len(renders) > 0:
                     out_h, out_w = int(renders[0].shape[2]), int(renders[0].shape[3])
                     source_path = _extract_source_path_from_cfg(scene_dir)
-                    if source_path is not None and "imed" in source_path.lower():
+                    if _has_imed_reprojection_inputs(source_path):
                         global_mask = _build_global_imed_overlap_mask(source_path, out_h, out_w)
                         global_mask_t = torch.from_numpy(global_mask).unsqueeze(0).unsqueeze(0).to(device="cuda", dtype=torch.float32)
                         for i in range(len(masks)):

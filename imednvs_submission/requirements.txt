@@ -1,0 +1,16 @@
+numpy==1.24.4
+pillow
+scipy==1.11.4
+matplotlib
+tqdm
+imageio[ffmpeg]
+opencv-python-headless==4.7.0.72
+lpips
+plyfile
+pytorch_msssim
+open3d
+torchmetrics
+onnx
+onnxruntime
+onnxruntime-gpu
+mmcv==1.6.0

@@ -138,14 +138,24 @@ def render_set(model_path, name, iteration, views, gaussians, pipeline, backgrou
             torchvision.utils.save_image(image, os.path.join(gtdepth_path, '{0:05d}'.format(count) + ".png"))
             count += 1
             
-            
-    render_array = torch.stack(render_images, dim=0).permute(0, 2, 3, 1)
-    render_array = (render_array*255).clip(0, 255).byte()
-    imageio.mimwrite(os.path.join(model_path, name, "ours_{}".format(iteration), 'ours_video.mp4'), render_array, fps=30, quality=8)
-    
-    gt_array = torch.stack(gt_list, dim=0).permute(0, 2, 3, 1)
-    gt_array = (gt_array*255).clip(0, 255).byte()
-    imageio.mimwrite(os.path.join(model_path, name, "ours_{}".format(iteration), 'gt_video.mp4'), gt_array, fps=30, quality=8)
+    def _write_video(filename, frames):
+        if len(frames) == 0:
+            return
+        array = torch.stack(frames, dim=0).permute(0, 2, 3, 1)
+        array = (array * 255).clip(0, 255).byte().detach().cpu().numpy()
+        try:
+            imageio.mimwrite(
+                os.path.join(model_path, name, "ours_{}".format(iteration), filename),
+                array,
+                fps=30,
+                quality=8,
+                macro_block_size=1,
+            )
+        except Exception as exc:
+            print(f"[WARN] Skipping {filename} export: {exc}")
+
+    _write_video('ours_video.mp4', render_images)
+    _write_video('gt_video.mp4', gt_list)
                     
     FoVy, FoVx, height, width = view.FoVy, view.FoVx, view.image_height, view.image_width
     focal_y, focal_x = fov2focal(FoVy, height), fov2focal(FoVx, width)
