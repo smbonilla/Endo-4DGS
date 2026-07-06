@@ -210,7 +210,7 @@ def readImages(renders_dir, gt_dir, masks_dir, overlap_mask_path=None):
             frame_mask = frame_mask[:, :1, :, :]
         frame_mask = (frame_mask > 0.5).float()
         if overlap_mask is not None:
-            frame_mask = overlap_mask
+            frame_mask = frame_mask * overlap_mask
         masks.append(frame_mask)
         image_names.append(fname)
     return renders, gts, masks, image_names
@@ -257,7 +257,7 @@ def evaluate(model_paths):
                         global_mask = _build_global_imed_overlap_mask(source_path, out_h, out_w)
                         global_mask_t = torch.from_numpy(global_mask).unsqueeze(0).unsqueeze(0).to(device="cuda", dtype=torch.float32)
                         for i in range(len(masks)):
-                            masks[i] = global_mask_t
+                            masks[i] = masks[i] * global_mask_t
                         Image.fromarray((global_mask * 255.0).astype(np.uint8)).save(overlap_mask_path)
                         Image.fromarray((global_mask * 255.0).astype(np.uint8)).save(method_dir / "imed_reprojection_mask.png")
 
